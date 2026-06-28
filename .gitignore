@@ -1,0 +1,19 @@
+node_modules/
+
+# Build outputs
+dist/
+docs/.vitepress/dist/
+
+# Runtime data
+_kb/
+
+# BMad framework (reinstallable via `bmad install`)
+.agents/
+_bmad/
+_bmad-output/
+
+# BMad-generated OpenCode command bindings (reinstallable)
+.opencode/commands/
+
+# Backups
+opencode.json.back

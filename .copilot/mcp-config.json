@@ -1,0 +1,10 @@
+# Copilot CLI MCP Server Configuration
+# See: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers
+servers:
+  ai-dispatch:
+    type: stdio
+    command: node
+    args:
+      - packages/mcp-orchestrator/dist/index.js
+      - --transport
+      - stdio

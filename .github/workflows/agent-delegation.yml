@@ -1,0 +1,43 @@
+name: Agent Delegation
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  agent-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/mcp-orchestrator/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: packages/mcp-orchestrator
+
+      - name: Build
+        run: npm run build
+        working-directory: packages/mcp-orchestrator
+
+      - name: Determine event and run agent
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            node packages/mcp-orchestrator/dist/bin/agent-runner.js \
+              --event "github:pull_request.opened" \
+              --payload '{"pr": "${{ github.event.pull_request.html_url }}"}'
+          elif [ "${{ github.event_name }}" == "issue_comment" ]; then
+            COMMENT="${{ github.event.comment.body }}"
+            if echo "$COMMENT" | grep -q "^/agent "; then
+              AGENT=$(echo "$COMMENT" | sed 's/^\/agent //')
+              node packages/mcp-orchestrator/dist/bin/agent-runner.js \
+                --event "github:comment.command" \
+                --payload "{\"agent\": \"$AGENT\", \"comment\": \"$COMMENT\"}"
+            fi
+          fi

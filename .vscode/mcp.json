@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "ai-dispatch": {
+      "command": "node",
+      "args": [
+        "packages/mcp-orchestrator/dist/index.js",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}
