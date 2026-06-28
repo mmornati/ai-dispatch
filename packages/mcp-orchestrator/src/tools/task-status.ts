@@ -41,6 +41,7 @@ export function createTaskStatusTool(taskQueue: TaskQueue) {
               startedAt: task.startedAt ?? null,
               completedAt: task.completedAt ?? null,
               mirrorStatus: task.mirrorStatus ?? null,
+              progress: task.progress ?? null,
               output: task.output ?? null,
             }),
           },

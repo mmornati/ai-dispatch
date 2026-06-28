@@ -16,6 +16,7 @@ export interface Task {
   mirrorStatus?: "pending" | "pass" | "fail" | "needs-revision";
   retryCount: number;
   maxRetries: number;
+  progress?: string;
 }
 
 export interface CreateTaskInput {

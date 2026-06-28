@@ -33,4 +33,7 @@ Validates the output of the code-review agent for completeness and accuracy.
 ```
 
 ## Output
-Returns `{ "status": "pass" | "fail" | "needs-revision", "feedback": "..." }`
+You MUST respond with ONLY a valid JSON object (no markdown, no code fences):
+```json
+{ "status": "pass" | "fail" | "needs-revision", "feedback": "..." }
+```

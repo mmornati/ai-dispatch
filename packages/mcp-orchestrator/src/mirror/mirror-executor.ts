@@ -48,14 +48,28 @@ export class MirrorExecutor {
       console.error(`[Mirror] mirror task ${mirrorTask.id} enqueued`);
 
       const completed = await this.taskQueue.waitForCompletion(mirrorTask.id);
-      console.error(`[Mirror] mirror task completed, status=${completed.status}, output=${JSON.stringify(completed.output)}`);
-      const output = completed.output;
+      console.error(`[Mirror] mirror task completed, status=${completed.status}, output=${JSON.stringify(completed.output).slice(0, 300)}`);
 
-      const rawStatus = (output as Record<string, unknown>)?.status;
-      const result: MirrorResult = {
-        status: (rawStatus === "pass" || rawStatus === "fail" || rawStatus === "needs-revision" ? rawStatus : "fail"),
-        feedback: ((output as Record<string, unknown>)?.feedback as string) ?? "No feedback provided",
-      };
+      const output = completed.output as Record<string, unknown> | undefined;
+      const llmContent = (output?.output as string) ?? JSON.stringify(output ?? {});
+
+      let status: "pass" | "fail" | "needs-revision" = "fail";
+      let feedback = llmContent;
+
+      try {
+        const cleaned = llmContent.replace(/```(?:json)?\n?/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.status === "pass" || parsed.status === "fail" || parsed.status === "needs-revision") {
+          status = parsed.status;
+        }
+        if (parsed.feedback) feedback = parsed.feedback;
+      } catch {
+        const lower = llmContent.toLowerCase();
+        if (lower.includes("pass")) status = "pass";
+        if (lower.includes("needs-revision")) status = "needs-revision";
+      }
+
+      const result: MirrorResult = { status, feedback };
 
       console.error(`[Mirror] result: status=${result.status}, setting meta on primary task`);
       await this.taskQueue.setTaskMeta(primaryTask.id, {

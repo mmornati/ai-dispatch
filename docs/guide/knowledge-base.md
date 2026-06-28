@@ -25,36 +25,35 @@ _kb/
 
 ## Agent Output Naming Convention
 
-Each agent writes to `outbox/` with a consistent pattern:
+Every agent writes its LLM-generated output to `outbox/{agent-name}-{task-id}.md`:
 
 | Agent | Output Pattern |
 |-------|---------------|
-| `code-review` | `review-{task-id}.md` |
-| `onboarding` | `onboarding-{name}.md` |
-| `incident-response` | `incident-{task-id}.md` |
-| `meeting-prep` | `meeting-prep-{type}-{date}.md` |
-| `docs-sync` | `docs-update-{task-id}.md` |
-| `system-builder` | `system-builder-{task-id}.md` |
+| `code-review` | `outbox/code-review-{task-id}.md` |
+| `code-review-auditor` | `outbox/code-review-auditor-{task-id}.md` |
+| `docs-sync` | `outbox/docs-sync-{task-id}.md` |
+| `onboarding` | `outbox/onboarding-{task-id}.md` |
+| `incident-response` | `outbox/incident-response-{task-id}.md` |
+| `meeting-prep` | `outbox/meeting-prep-{task-id}.md` |
+| `system-builder` | `outbox/system-builder-{task-id}.md` |
 
-### Sample Output: Code Review Report
+### Sample Output
+
+The actual output comes from the LLM call, not hardcoded mock data. For example, a code review agent (`claude-sonnet-4`) might generate:
 
 ```markdown
 # Code Review Report
 
 ## Summary
-Analyzed diff and found 1 critical issue.
+The diff introduces a remote code execution vulnerability via `execSync`.
 
-## Critical Issues
-1. **Remote Code Execution via execSync** — severity: **critical**
-   - **File:** src/auth.ts, line 19
-   - **Issue:** `execSync('rm -rf /')` executes arbitrary system commands.
-   - **Risk:** Full filesystem compromise.
-   - **Fix:** Remove `execSync` and use safe filesystem APIs.
-
----
-
-*Reviewed by code-review agent (task: abc-123)*
+## Findings
+- **Critical**: `execSync("rm -rf /")` on line 19 allows arbitrary command execution.
+  - **Risk**: Full filesystem compromise.
+  - **Fix**: Remove the call or use `child_process.execFile` with sanitized arguments.
 ```
+
+Each agent's markdown description guides the LLM's output format, so the actual content and structure vary based on the input and the model used.
 
 ## API
 
@@ -120,15 +119,17 @@ handleTask processes the agent:
   │
   ├─> Reads agent config from agents/code-review.agent.md
   │
-  ├─> Produces result (code review report)
+  ├─> Calls OpenRouter with agent's model (claude-sonnet-4)
+  │     └─> System prompt = agent's markdown description
+  │     └─> User message = diff input
   │
-  ├─> kb.write("outbox/review-{id}.md", report)
-  │     └─> Filesystem: _kb/outbox/review-abc-123.md
+  ├─> kb.write("outbox/code-review-{id}.md", llmResponse)
+  │     └─> Filesystem: _kb/outbox/code-review-abc-123.md
   │
   └─> Returns result to task queue
   │
   ▼
-OpenCode reads via kb/read("outbox/review-abc-123.md")
+OpenCode reads via kb/read("outbox/code-review-abc-123.md")
   │
   ▼
 Result presented to user

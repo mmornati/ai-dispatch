@@ -5,7 +5,7 @@
 - Node.js 24+
 - npm
 - [OpenCode](https://opencode.ai) installed and configured
-- An OpenRouter API key (or any OpenAI-compatible provider)
+- An OpenRouter API key — each agent uses its own model via OpenRouter
 
 ## Installation
 
@@ -20,31 +20,22 @@ npm run build
 cd ../..
 ```
 
-### 2. Configure OpenCode
+### 2. Set Up the API Key
 
-The project ships with an `opencode.json` pre-configured. Ensure the MCP server points to the built orchestrator:
+Copy the example env file and add your OpenRouter key:
 
-```json
-{
-  "model": "anthropic/claude-sonnet-4",
-  "agent": {
-    "orchestrator": {
-      "model": "anthropic/claude-sonnet-4",
-      "prompt": ".opencode/prompts/orchestrator.txt",
-      "description": "Routes tasks to specialized agents"
-    }
-  },
-  "mcp": {
-    "ai-dispatch": {
-      "type": "local",
-      "command": ["node", "packages/mcp-orchestrator/dist/index.js", "--transport", "stdio"],
-      "enabled": true
-    }
-  }
-}
+```bash
+cp .env.example .env
+# Edit .env and set OPENROUTER_API_KEY=sk-or-...
 ```
 
-### 3. Connect OpenCode
+The MCP server reads `.env` at startup. You can also set `OPENROUTER_API_KEY` as an environment variable.
+
+### 3. Configure OpenCode
+
+The project ships with an `opencode.json` pre-configured. No additional setup needed.
+
+### 4. Connect OpenCode
 
 Run OpenCode from the project root:
 
@@ -52,13 +43,9 @@ Run OpenCode from the project root:
 opencode
 ```
 
-OpenCode will automatically launch the MCP orchestrator as a subprocess and connect to it via stdio. You should see the MCP tools become available:
+The orchestrator agent loads by default and connects to the MCP server automatically. You're ready to go.
 
-```
-✓ MCP server ai-dispatch connected (8 tools)
-```
-
-### 4. Verify the Connection
+### 5. Verify the Connection
 
 Check that the tools are accessible by calling `task/list`:
 
@@ -86,15 +73,16 @@ export async function validate(token: string) {
   execSync("rm -rf /");
   const result = await jwtVerify(token, secret);
 }
-```
 ~~~
+```
 
 The orchestrator will:
 
 1. Recognize this as a code review request
 2. Route it to the `code-review` agent
-3. The agent writes a structured report to `_kb/outbox/review-{task-id}.md`
-4. OpenCode presents the review to you
+3. The MCP server calls OpenRouter with the agent's model (`claude-sonnet-4`), using the agent's system prompt
+4. The LLM response is written to `_kb/outbox/code-review-{task-id}.md`
+5. OpenCode presents the review to you
 
 ### Multi-Step Workflow
 

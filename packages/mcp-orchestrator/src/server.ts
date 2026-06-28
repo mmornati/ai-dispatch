@@ -28,6 +28,7 @@ import { createDelegateTool } from "./tools/delegate-tool.js";
 import { Task } from "./schemas/task.js";
 import { Authenticator, type OAuth2Config } from "./auth/authenticator.js";
 import { createSSEAuthMiddleware, createOAuthMetadataEndpoint } from "./auth/middleware.js";
+import { LLMProvider } from "./llm/provider.js";
 import type { ServerResponse } from "node:http";
 
 export interface OrchestratorConfig {
@@ -53,6 +54,7 @@ export class MCPOrchestratorServer {
   private mirrorExecutor: MirrorExecutor;
   private tools: Map<string, ToolDefinition>;
   private config: OrchestratorConfig;
+  private llm: LLMProvider;
 
   constructor(config: OrchestratorConfig) {
     this.config = config;
@@ -85,6 +87,8 @@ export class MCPOrchestratorServer {
 
     new SubDelegator(this.agentLoader, this.taskQueue, this.dagRunner);
 
+    this.llm = new LLMProvider();
+
     this.tools = new Map();
 
     const runAgent = createRunAgentTool(this.agentLoader, this.taskQueue, this.dagRunner, this.kb);
@@ -103,8 +107,21 @@ export class MCPOrchestratorServer {
     this.setupHandlers();
   }
 
+  private extractUserMessage(input: unknown): string {
+    if (typeof input === "string") return input;
+    if (input === null || input === undefined) return "";
+    const obj = input as Record<string, unknown>;
+    if (obj.dagNodeId && obj.input) {
+      return typeof obj.input === "string"
+        ? obj.input
+        : JSON.stringify(obj.input, null, 2);
+    }
+    return JSON.stringify(input, null, 2);
+  }
+
   private async handleTask(task: Task): Promise<unknown> {
     console.error(`[handleTask] processing task ${task.id} for agent "${task.agentName}"`);
+    await this.taskQueue.setTaskMeta(task.id, { progress: "Loading agent configuration..." });
     const config = await this.agentLoader.getAgent(task.agentName);
     if (!config) {
       console.error(`[handleTask] agent "${task.agentName}" not found for task ${task.id}`);
@@ -112,58 +129,51 @@ export class MCPOrchestratorServer {
     }
 
     const input = task.input ?? {};
+    const userMessage = this.extractUserMessage(input);
+    const systemPrompt = config.description || `You are the ${config.name} agent.`;
 
     let result: unknown;
 
-    if (task.agentName === "code-review") {
-      const rawInput = typeof input === "object" && input !== null
-        ? (input as Record<string, unknown>).input ?? JSON.stringify(input)
-        : String(input);
-
-      let diff: string;
-      try {
-        const parsed = typeof rawInput === "string" ? JSON.parse(rawInput) : rawInput;
-        const d = (parsed as Record<string, unknown>).diff;
-        diff = typeof d === "string" ? d : String(rawInput);
-      } catch {
-        diff = String(rawInput);
-      }
-
-      const report = [
-        "# Code Review Report",
-        "",
-        "## Summary",
-        "Analyzed diff and found 1 critical issue.",
-        "",
-        "## Critical Issues",
-        `1. **Remote Code Execution via execSync** — severity: **critical**`,
-        "   - **File:** src/auth.ts, line 19",
-        "   - **Issue:** `execSync('rm -rf /')` executes arbitrary system commands.",
-        "   - **Risk:** Full filesystem compromise.",
-        "   - **Fix:** Remove `execSync` and use safe filesystem APIs.",
-        "",
-        "---",
-        `*Reviewed by code-review agent (task: ${task.id})*`,
-      ].join("\n");
-
-      await this.kb.write(`outbox/review-${task.id}.md`, report);
-      result = { report, severity: "critical" };
-    } else if (task.agentName === "code-review-auditor") {
+    if (!this.llm.available) {
+      console.error(`[handleTask] OPENROUTER_API_KEY not set — returning raw input for ${task.agentName}`);
+      await this.taskQueue.setTaskMeta(task.id, { progress: "API key not configured — skipping LLM" });
       result = {
-        status: "pass",
-        feedback: "Audit passed: critical issue correctly identified, severity properly assigned.",
+        note: "OPENROUTER_API_KEY not configured — LLM call skipped. Set OPENROUTER_API_KEY env var and restart.",
+        agentName: task.agentName,
+        input: userMessage,
       };
-    } else if (task.agentName === "docs-sync") {
-      result = { synced: true, agentName: task.agentName };
-    } else if (task.agentName === "onboarding") {
-      result = { onboarded: true, name: (input as Record<string, unknown>).name ?? "unknown" };
     } else {
-      result = { processed: true, agentName: task.agentName, input };
+      try {
+        await this.taskQueue.setTaskMeta(task.id, { progress: `Calling ${config.model.id}...` });
+        const llmResult = await this.llm.chat({
+          model: config.model.id,
+          systemPrompt,
+          userMessage,
+          temperature: (config.model.params as Record<string, unknown>)?.temperature as number | undefined,
+        });
+
+        await this.taskQueue.setTaskMeta(task.id, { progress: "Writing output to knowledge base..." });
+        const kbPath = `outbox/${config.name}-${task.id}.md`;
+        await this.kb.write(kbPath, llmResult.content);
+
+        result = {
+          output: llmResult.content,
+          model: llmResult.model,
+          agentName: config.name,
+        };
+
+        console.error(`[handleTask] ${task.agentName} used model ${llmResult.model}`);
+      } catch (err) {
+        console.error(`[handleTask] LLM call failed for ${task.agentName}:`, err);
+        await this.taskQueue.setTaskMeta(task.id, { progress: `LLM call failed: ${(err as Error).message}` });
+        throw err;
+      }
     }
 
     // Inline mirror execution for standalone tasks (DAG tasks handle mirrors in executor)
     const mirrorName = config.mirror;
-    if (mirrorName && !task.dagRunId) {
+    if (mirrorName && !task.dagRunId && this.llm.available) {
+      await this.taskQueue.setTaskMeta(task.id, { progress: `Running mirror audit via ${mirrorName}...` });
       console.error(`[handleTask] running inline mirror "${mirrorName}" for task ${task.id}`);
       const mirrorConfig = await this.agentLoader.getAgent(mirrorName);
       if (mirrorConfig) {
@@ -173,29 +183,46 @@ export class MCPOrchestratorServer {
           primaryInput: task.input,
           primaryOutput: result,
         };
-        const mirrorTask: Task = {
-          ...task,
-          id: "",
-          agentName: mirrorName,
-          input: mirrorInput,
-          status: "running",
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          retryCount: 0,
-          maxRetries: 0,
-        };
-        const mirrorOutput = await this.handleTask(mirrorTask);
-        const rawStatus = (mirrorOutput as Record<string, unknown>)?.status;
-        const mirrorStatus = rawStatus === "pass" || rawStatus === "fail" || rawStatus === "needs-revision" ? rawStatus : "fail";
-        await this.taskQueue.setTaskMeta(task.id, { mirrorStatus });
-        if (result && typeof result === "object") {
-          (result as Record<string, unknown>).mirrorStatus = mirrorStatus;
-          (result as Record<string, unknown>).mirrorFeedback = (mirrorOutput as Record<string, unknown>)?.feedback;
+        const mirrorSystemPrompt =
+          mirrorConfig.description ||
+          `You are the ${mirrorName} mirror agent. Audit the primary agent's output and return JSON with "status" ("pass"|"fail"|"needs-revision") and "feedback".`;
+
+        try {
+          await this.taskQueue.setTaskMeta(task.id, { progress: `Mirror: calling ${mirrorConfig.model.id}...` });
+          const mirrorResult = await this.llm.chat({
+            model: mirrorConfig.model.id,
+            systemPrompt: mirrorSystemPrompt,
+            userMessage: JSON.stringify(mirrorInput, null, 2),
+            temperature: (mirrorConfig.model.params as Record<string, unknown>)?.temperature as number | undefined,
+          });
+
+          let mirrorStatus: "pass" | "fail" | "needs-revision" = "pass";
+          try {
+            const cleaned = mirrorResult.content.replace(/```(?:json)?\n?/g, "").trim();
+            const parsed = JSON.parse(cleaned);
+            if (parsed.status === "pass" || parsed.status === "fail" || parsed.status === "needs-revision") {
+              mirrorStatus = parsed.status;
+            }
+          } catch {
+            const lower = mirrorResult.content.toLowerCase();
+            if (lower.includes("fail")) mirrorStatus = "fail";
+            else if (lower.includes("needs-revision")) mirrorStatus = "needs-revision";
+          }
+
+          await this.taskQueue.setTaskMeta(task.id, { mirrorStatus, progress: `Mirror audit: ${mirrorStatus}` });
+          if (result && typeof result === "object") {
+            (result as Record<string, unknown>).mirrorStatus = mirrorStatus;
+            (result as Record<string, unknown>).mirrorFeedback = mirrorResult.content;
+          }
+        } catch (err) {
+          console.error(`[handleTask] mirror LLM call failed for ${mirrorName}:`, err);
+          await this.taskQueue.setTaskMeta(task.id, { progress: `Mirror audit failed: ${(err as Error).message}` });
         }
       }
     }
 
-    console.error(`[handleTask] task ${task.id} done, ${JSON.stringify(result).slice(0, 200)}`);
+    await this.taskQueue.setTaskMeta(task.id, { progress: "Complete" });
+    console.error(`[handleTask] task ${task.id} done for "${task.agentName}"`);
     return result;
   }
 

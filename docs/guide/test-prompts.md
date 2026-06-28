@@ -2,6 +2,10 @@
 
 Use these prompts to test the orchestrator from OpenCode. Each test lists the prompt to send and what to verify.
 
+::: warning Requires OPENROUTER_API_KEY
+Tests 1, 2, 7, and 9 make real LLM calls via OpenRouter using each agent's configured model. Set `OPENROUTER_API_KEY` in `.env` or the environment before testing. Without it, the MCP server returns fallback responses with a warning.
+:::
+
 ## 1. Single Agent — Code Review
 
 **Prompt:**
@@ -25,7 +29,9 @@ Run the code-review agent on this diff:
 **Expected outcome:**
 - `agent/run` returns a `taskId`
 - Polling `task/status` shows `completed`
-- `kb/read outbox/review-{task-id}.md` contains a review report flagging `execSync` as **critical** severity
+- The agent's model (`claude-sonnet-4`) generates a real code review
+- `kb/read outbox/code-review-{task-id}.md` contains the LLM-generated report
+- The report flags `execSync("rm -rf /")` as a security issue
 
 ## 2. DAG — 3-Step Review + Docs + Notify
 

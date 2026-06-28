@@ -1,34 +1,42 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "anthropic/claude-sonnet-4",
-  "small_model": "openai/gpt-4o-mini",
+  "model": "openrouter/deepseek/deepseek-v4-flash",
   "disabled_providers": ["github-copilot"],
   "provider": {
-    "openrouter": {}
+    "openrouter": {
+      "models": {
+        "deepseek/deepseek-v4-flash": {},
+        "anthropic/claude-sonnet-4": {},
+        "anthropic/claude-opus-4.8": {},
+        "openai/gpt-4o-mini": {}
+      }
+    }
   },
+  "default_agent": "orchestrator",
   "agent": {
     "orchestrator": {
-      "model": "anthropic/claude-sonnet-4",
-      "prompt": ".opencode/prompts/orchestrator.txt",
+      "mode": "primary",
+      "model": "openrouter/deepseek/deepseek-v4-flash",
+      "prompt": "{file:.opencode/prompts/orchestrator.txt}",
       "description": "Routes tasks to specialized agents"
     },
     "code-review-agent": {
-      "model": "anthropic/claude-opus-4.8",
+      "model": "openrouter/anthropic/claude-opus-4.8",
       "description": "Reviews pull requests for code quality, security, and style",
       "hidden": true
     },
     "mirror-auditor": {
-      "model": "anthropic/claude-sonnet-4",
+      "model": "openrouter/anthropic/claude-sonnet-4",
       "description": "Validates outputs of other agents (mirror protocol)",
       "hidden": true
     },
     "incident-response-agent": {
-      "model": "anthropic/claude-sonnet-4",
+      "model": "openrouter/anthropic/claude-sonnet-4",
       "description": "Handles production incident triage and response",
       "hidden": true
     },
     "docs-sync-agent": {
-      "model": "openai/gpt-4o-mini",
+      "model": "openrouter/openai/gpt-4o-mini",
       "description": "Keeps documentation in sync with code changes",
       "hidden": true
     }

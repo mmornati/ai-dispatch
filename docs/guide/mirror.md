@@ -31,29 +31,34 @@ Primary Agent (e.g., code-review)
 
 ## Inline Mirror (Standalone Tasks)
 
-For non-DAG tasks, the mirror runs **inline** within `handleTask` to avoid deadlock (the task queue's `processNext` is already running the primary task, so enqueuing another task wouldn't be processed until the current batch finishes):
+For non-DAG tasks, the mirror runs **inline** within `handleTask` — instead of enqueuing another task (which would deadlock `processNext`), it calls the LLM directly with the mirror agent's system prompt and model:
 
 ```typescript
 // In handleTask (server.ts)
-const result = await executeAgentLogic(task);
+const result = await this.llm.chat({
+  model: config.model.id,
+  systemPrompt: config.description,
+  userMessage, // The original task input
+});
 
-if (config.mirror && !task.dagRunId) {
-  const mirrorTask = {
-    agentName: config.mirror,
-    input: { type: "audit", primaryAgent: task.agentName, primaryOutput: result },
-  };
+// After primary completes, run mirror inline
+if (config.mirror && !task.dagRunId && this.llm.available) {
+  const mirrorConfig = await this.agentLoader.getAgent(mirrorName);
 
-  const mirrorOutput = await this.handleTask(mirrorTask);
+  const mirrorResult = await this.llm.chat({
+    model: mirrorConfig.model.id,          // e.g. claude-sonnet-4
+    systemPrompt: mirrorConfig.description, // e.g. auditor's system prompt
+    userMessage: JSON.stringify(mirrorInput, null, 2),
+  });
 
-  if (mirrorOutput && typeof mirrorOutput === "object") {
-    const mo = mirrorOutput as Record<string, unknown>;
-    result.mirrorStatus = mo.status;
-    result.mirrorFeedback = mo.feedback;
-  }
+  // Parse LLM response for status
+  const parsed = JSON.parse(mirrorResult.content);
+  result.mirrorStatus = parsed.status;     // "pass" | "fail" | "needs-revision"
+  result.mirrorFeedback = parsed.feedback;
 }
-
-return result;
 ```
+
+The mirror agent's `description` field instructs the LLM to return structured JSON with `status` and `feedback`. The JSON is parsed to determine whether the primary output passes, needs revision, or fails.
 
 ## DAG Mirror (via RetryHandler)
 

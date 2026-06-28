@@ -2,9 +2,9 @@
 layout: home
 
 hero:
-  name: AI Model Delegation
+  name: AI Dispatch
   text: Multi-Agent Orchestration for OpenCode
-  tagline: Route tasks to specialized AI agents via MCP — code review, incident response, docs sync, onboarding, and more.
+  tagline: Route tasks to specialized AI agents, each with its own model — code review, incident response, docs sync, onboarding, and more.
   image:
     src: /favicon.svg
     alt: AI Model Delegation

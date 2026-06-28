@@ -70,6 +70,9 @@ packages/mcp-orchestrator/
 │   │   ├── mirror-executor.ts      # MirrorExecutor
 │   │   └── retry-handler.ts        # RetryHandler (retry loop with mirror)
 │   │
+│   ├── llm/                        # LLM provider (OpenRouter API client)
+│   │   └── provider.ts             # LLMProvider — calls OpenRouter with agent-specific models
+│   │
 │   ├── loader/                     # Agent config loading
 │   │   ├── agent-loader.ts         # AgentLoader (scans, parses, validates)
 │   │   └── config-cache.ts         # ConfigCache (in-memory with age tracking)
@@ -109,6 +112,8 @@ packages/mcp-orchestrator/
 
 ## Adding a New Agent
 
+Adding a new agent is as simple as creating a markdown file. No code changes needed — the generic `handleTask` automatically loads the agent config, uses its markdown description as the LLM system prompt, and calls OpenRouter with the agent's configured model.
+
 1. Create `agents/your-agent.agent.md`:
 
 ```yaml
@@ -128,43 +133,47 @@ permissions:
 ---
 # Your Agent
 
-Describe what your agent does here.
+Describe what your agent does here. The markdown body becomes the LLM system prompt, so be specific about:
+
+- What the agent should do
+- What input format it expects
+- What output format it should produce
 ```
 
-2. Add a handler case in `server.ts` `handleTask()`:
+2. Rebuild: `npm run build`
 
-```typescript
-if (task.agentName === "your-agent") {
-  const result = { message: `Processed: ${JSON.stringify(input)}` };
-  await this.kb.write(`outbox/your-agent-${task.id}.md`, result.message);
-  return result;
-}
+3. Restart OpenCode — the new agent is now available via `agent/run({ agent: "your-agent", input: {} })`.
+
+### How It Works
+
+When the orchestrator dispatches to your agent, `handleTask`:
+
+1. Loads the agent config from `agents/your-agent.agent.md`
+2. Uses the markdown body as the LLM **system prompt**
+3. Sends the task input as the LLM **user message**
+4. Calls OpenRouter with `config.model.id` (e.g. `claude-sonnet-4`)
+5. Writes the LLM response to `_kb/outbox/your-agent-{task-id}.md`
+6. Returns `{ output, model, agentName }` to the task queue
+
+### Example
+
+Create `agents/joke-teller.agent.md`:
+
+```yaml
+---
+name: joke-teller
+model:
+  id: openai/gpt-4o-mini
+  provider: openrouter
+  params:
+    temperature: 0.8
+---
+# Joke Teller
+
+Tell a programming joke based on the user's input topic. Keep it family-friendly and under 100 words.
 ```
 
-3. Rebuild: `npm run build`
-
-4. Restart OpenCode — the new agent is now available via `agent/run({ agent: "your-agent", input: {} })`.
-
-## Extending the Task Handler
-
-The `handleTask` method in `server.ts` is where agent execution logic lives. Currently, it has built-in handlers for `code-review` and `code-review-auditor`. For production use, this should be replaced with an LLM-backed executor that:
-
-1. Reads the agent's system prompt from the `.agent.md` description
-2. Calls the AI model specified in `config.model.id`
-3. Parses the response and writes it to the KB
-
-```typescript
-private async handleTask(task: Task): Promise<unknown> {
-  const config = await this.agentLoader.getAgent(task.agentName);
-  if (!config) throw new Error(`Agent "${task.agentName}" not found`);
-
-  // TODO: Replace with LLM call
-  // const llm = new LLMClient(config.model);
-  // const result = await llm.generate(config.description, task.input);
-
-  return { processed: true, input: task.input };
-}
-```
+The agent is immediately available — no `server.ts` changes, no handler case, no switch statement.
 
 ## Type System
 
@@ -181,8 +190,9 @@ index.ts
   └─> MCPOrchestratorServer (server.ts)
         ├─> KnowledgeBase (kb/layout.ts)
         ├─> AgentLoader (loader/agent-loader.ts + config-cache.ts)
-        ├─> TaskQueue (queue/task-queue.ts + persistence.ts)
-        ├─> DAGRunner (dag/runner.ts → executor.ts → scheduler.ts → types.ts)
+├─> LLMProvider (llm/provider.ts)
+├─> TaskQueue (queue/task-queue.ts + persistence.ts)
+├─> DAGRunner (dag/runner.ts → executor.ts → scheduler.ts → types.ts)
         ├─> MirrorExecutor (mirror/mirror-executor.ts)
         ├─> RetryHandler (mirror/retry-handler.ts)
         ├─> SubDelegator (delegation/sub-delegator.ts)

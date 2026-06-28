@@ -111,20 +111,34 @@ AgentLoader
 
 The system uses a tiered model strategy:
 
+- **Routing model** (`deepseek/deepseek-v4-flash`) — Orchestrator agent for intent classification and tool calls
 - **Powerful models** (`claude-sonnet-4`, `claude-opus-4.8`) — Code tasks, incident response, mirror auditing
 - **Cheap/fast models** (`gpt-4o-mini`) — Documentation, onboarding, meeting prep
 
 This is configured per-agent in the frontmatter `model.id` field.
 
+## How Agents Use LLMs
+
+When the orchestrator dispatches a task to an agent, the MCP server:
+
+1. Loads the agent config from `agents/*.agent.md`
+2. The markdown body (after YAML frontmatter) becomes the LLM **system prompt**
+3. The user's input is sent as the LLM **user message**
+4. The API is called via OpenRouter with the agent's configured `model.id`
+5. The LLM response is written to `_kb/outbox/{agent-name}-{task-id}.md`
+
+This means the agent description IS the system prompt — write it carefully to guide the LLM's behavior.
+
 ## Agent Output Convention
 
-Every agent writes its output to `_kb/outbox/` with a consistent naming pattern:
+Every agent writes its LLM-generated output to `_kb/outbox/{agent-name}-{task-id}.md`. For example, a code-review task with ID `abc-123` writes to `_kb/outbox/code-review-abc-123.md`.
 
 | Agent | Output Pattern |
 |-------|---------------|
-| `code-review` | `review-{task-id}.md` |
-| `onboarding` | `onboarding-{name}.md` |
-| `incident-response` | `incident-{task-id}.md` |
-| `meeting-prep` | `meeting-prep-{type}-{date}.md` |
-| `docs-sync` | `docs-update-{task-id}.md` |
-| `system-builder` | `system-builder-{task-id}.md` |
+| `code-review` | `outbox/code-review-{task-id}.md` |
+| `code-review-auditor` | `outbox/code-review-auditor-{task-id}.md` |
+| `docs-sync` | `outbox/docs-sync-{task-id}.md` |
+| `onboarding` | `outbox/onboarding-{task-id}.md` |
+| `incident-response` | `outbox/incident-response-{task-id}.md` |
+| `meeting-prep` | `outbox/meeting-prep-{task-id}.md` |
+| `system-builder` | `outbox/system-builder-{task-id}.md` |

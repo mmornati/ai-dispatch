@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { MCPOrchestratorServer, OrchestratorConfig } from "./server.js";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const args = process.argv.slice(2);
@@ -12,6 +12,27 @@ function getArg(name: string): string | undefined {
 
 function hasFlag(name: string): boolean {
   return args.includes(name);
+}
+
+function loadEnvFile(envPath: string): void {
+  try {
+    const content = readFileSync(envPath, "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        process.env[key] = val;
+      }
+    }
+  } catch {
+    // .env file not found or unreadable — skip
+  }
 }
 
 const transport = getArg("--transport") === "sse" ? "sse" : "stdio";
@@ -32,10 +53,13 @@ function findProjectRoot(startPath: string): string {
   return startPath;
 }
 
+const projectRoot = findProjectRoot(process.cwd());
+loadEnvFile(resolve(projectRoot, ".env"));
+
 const config: OrchestratorConfig = {
   transport,
   port,
-  projectRoot: findProjectRoot(process.cwd()),
+  projectRoot,
 };
 
 const authEnabled = hasFlag("--auth-enabled") || getArg("--auth") === "enabled";

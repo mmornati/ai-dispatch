@@ -7,10 +7,10 @@ The system is configured primarily through `opencode.json` at the project root. 
 ```json
 {
   "$schema": "https://opencode.ai/schema.json",
-  "model": "anthropic/claude-sonnet-4",
+  "model": "deepseek/deepseek-v4-flash",
   "agent": {
     "orchestrator": {
-      "model": "anthropic/claude-sonnet-4",
+      "model": "deepseek/deepseek-v4-flash",
       "prompt": ".opencode/prompts/orchestrator.txt",
       "description": "Routes tasks to specialized agents",
       "maxTokens": 8000
@@ -94,11 +94,15 @@ Then configure OpenCode to connect:
 
 ## Environment Variables
 
+The MCP server loads `.env` from the project root at startup (or reads from the process environment).
+
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENROUTER_API_KEY` | Yes | API key for OpenRouter |
+| `OPENROUTER_API_KEY` | Yes | API key for OpenRouter — required for agent LLM calls |
 | `ANTHROPIC_API_KEY` | Alternative | If using Anthropic directly |
 | `OPENAI_API_KEY` | Alternative | If using OpenAI directly |
+
+If `OPENROUTER_API_KEY` is not set, the MCP server logs a warning and returns a fallback response (no fake mock data). Copy `.env.example` → `.env` and add your key to enable real LLM-powered agents.
 
 ## RBAC / Permissions
 
