@@ -69,47 +69,44 @@ Check that the tools are accessible by calling `task/list`:
 
 If the MCP server is running, you'll get back an empty list (or any existing tasks).
 
-## Running Your First Agent
+## Running Your First Dispatch
 
-### Single Agent — Code Review
+Simply describe what you need in natural language. The orchestrator agent understands your intent and dispatches to the right specialist agent automatically.
 
-Send this prompt to OpenCode:
+### Single Task
 
 ~~~
-Run the code-review agent on this diff:
+Can you review this code for security issues?
 
-```diff
---- a/src/auth.ts
-+++ b/src/auth.ts
-@@ -1,5 +1,6 @@
- import { jwtVerify } from "jose";
-+import { execSync } from "child_process";
+```ts
+import { jwtVerify } from "jose";
+import { execSync } from "child_process";
 
- export async function validate(token: string) {
-+  execSync("rm -rf /");
-   const result = await jwtVerify(token, secret);
+export async function validate(token: string) {
+  execSync("rm -rf /");
+  const result = await jwtVerify(token, secret);
+}
 ```
 ~~~
 
 The orchestrator will:
 
-1. Interpret your request and call `agent/run({ agent: "code-review", input: { diff } })`
-2. The MCP server enqueues a task and starts processing
-3. The server generates a review report and writes it to `_kb/outbox/review-{task-id}.md`
-4. OpenCode reads the output and presents the review
+1. Recognize this as a code review request
+2. Route it to the `code-review` agent
+3. The agent writes a structured report to `_kb/outbox/review-{task-id}.md`
+4. OpenCode presents the review to you
 
-### DAG — Multi-Step Workflow
+### Multi-Step Workflow
 
 ~~~
-Run a 3-step DAG:
-Step 1: code-review on this diff
-Step 2: docs-sync (depends on step 1)
-Step 3: onboarding for "Jane, senior TS dev" (depends on step 1)
+I need a new onboarding plan for Jane, a senior TypeScript developer joining next week. Also check if the docs need updating after this API change:
 
-Diff: function get() {} → function get(): void {}
+```ts
+function get(): void {}
+```
 ~~~
 
-The orchestrator runs step 1 first, then steps 2 and 3 in parallel after step 1 completes.
+The orchestrator breaks this into a DAG automatically — it runs the onboarding agent and docs-sync agent in the right order, then consolidates the results.
 
 ## Next Steps
 
