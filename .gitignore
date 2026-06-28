@@ -7,10 +7,8 @@ docs/.vitepress/dist/
 # Runtime data
 _kb/
 
-# BMad framework (reinstallable via `bmad install`)
+# BMad agent skills (framework boilerplate, reinstallable via `bmad install`)
 .agents/
-_bmad/
-_bmad-output/
 
 # BMad-generated OpenCode command bindings (reinstallable)
 .opencode/commands/

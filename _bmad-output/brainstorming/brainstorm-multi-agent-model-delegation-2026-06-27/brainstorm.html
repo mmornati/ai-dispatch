@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent Model Delegation System — Brainstorm</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #16213e;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --green: #10b981;
+    --red: #ef4444;
+    --pink: #ec4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  /* Particles background */
+  #particles {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  header {
+    text-align: center;
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    margin-bottom: 3rem;
+  }
+  header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+  }
+  header .subtitle {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    font-weight: 300;
+  }
+  header .meta {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  header .meta span { opacity: 0.7; }
+
+  section {
+    margin-bottom: 3rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  h2 .badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-weight: 500;
+    background: var(--surface2);
+    color: var(--text-dim);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+  }
+  .card:hover {
+    border-color: rgba(255,255,255,0.1);
+    transform: translateY(-1px);
+  }
+
+  .lens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .lens-card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .lens-card .lens-letter {
+    display: inline-flex;
+    width: 32px; height: 32px;
+    align-items: center; justify-content: center;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+  .lens-card .lens-letter.s { background: #00d4ff22; color: var(--accent); }
+  .lens-card .lens-letter.c { background: #7c3aed22; color: var(--accent2); }
+  .lens-card .lens-letter.a { background: #f59e0b22; color: var(--accent3); }
+  .lens-card .lens-letter.m { background: #10b98122; color: var(--green); }
+  .lens-card .lens-letter.p { background: #ec489922; color: var(--pink); }
+  .lens-card .lens-letter.e { background: #ef444422; color: var(--red); }
+  .lens-card .lens-letter.r { background: #6366f122; color: #818cf8; }
+  .lens-card h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .lens-card p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  .lens-card .from-user {
+    border-left: 2px solid var(--accent3);
+    padding-left: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent3);
+  }
+  .lens-card .from-coach {
+    border-left: 2px solid var(--accent);
+    padding-left: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+
+  .arch-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 2rem 0;
+  }
+  .arch-box {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 0.75rem 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    min-width: 220px;
+  }
+  .arch-box .arch-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+  }
+  .arch-box .arch-title {
+    font-weight: 600;
+  }
+  .arch-arrow {
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    padding: 0.25rem 0;
+  }
+  .arch-fork {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0;
+  }
+  .arch-fork .arch-box {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .constraint-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .constraint-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: var(--surface2);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+  .constraint-table th:first-child { border-radius: 8px 0 0 0; }
+  .constraint-table th:last-child { border-radius: 0 8px 0 0; }
+  .constraint-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .constraint-table .tag {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .tag-real { background: #10b98122; color: var(--green); }
+  .tag-imagined { background: #f59e0b22; color: var(--accent3); }
+
+  .invented-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--accent2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .invented-card .badge {
+    display: inline-block;
+    background: var(--accent2);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+  }
+  .invented-card h3 {
+    margin-bottom: 0.5rem;
+  }
+  .invented-card p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .direction-list { list-style: none; }
+  .direction-list li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-dim);
+  }
+  .direction-list li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent3);
+  }
+
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .step-num {
+    display: flex;
+    align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .step-text { flex: 1; font-size: 0.9rem; }
+  .step-prio {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .prio-p0 { background: #ef444422; color: var(--red); }
+  .prio-p1 { background: #f59e0b22; color: var(--accent3); }
+
+  .quote {
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 1rem 0;
+    background: var(--surface2);
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: var(--text-dim);
+  }
+
+  footer {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.8rem; }
+    .lens-grid { grid-template-columns: 1fr; }
+    .arch-fork { flex-direction: column; }
+    header .meta { flex-direction: column; gap: 0.3rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="container">
+
+<header>
+  <h1>Multi-Agent Model Delegation System</h1>
+  <p class="subtitle">An open, cross-platform orchestration system where a cheap model delegates BMAD tasks to specialized sub-agents with different models and tools</p>
+  <div class="meta">
+    <span>Session: Creative Partner</span>
+    <span>Techniques: SCAMPER · 2 Invented · Constraint Mapping</span>
+    <span>2026-06-27</span>
+  </div>
+</header>
+
+<!-- Architecture -->
+<section>
+  <h2>Architecture <span class="badge">Two entry points, same engine</span></h2>
+
+  <div class="arch-container">
+    <div class="arch-box" style="border-color: var(--accent3);">
+      <div class="arch-label">MCP Client</div>
+      <div class="arch-title">Copilot App · VS Code · OpenCode · Cursor</div>
+    </div>
+    <div class="arch-arrow">↓ MCP</div>
+    <div class="arch-box" style="border-color: var(--accent);">
+      <div class="arch-label">Local</div>
+      <div class="arch-title">Orchestration MCP Server</div>
+    </div>
+    <div class="arch-arrow">↕ shared engine</div>
+    <div class="arch-box" style="border-color: var(--accent2);">
+      <div class="arch-label">Core</div>
+      <div class="arch-title">DAG Engine · Agent Registry · KB · Mirror</div>
+    </div>
+    <div class="arch-arrow">↓ event</div>
+    <div class="arch-box" style="border-color: var(--green);">
+      <div class="arch-label">CI/CD</div>
+      <div class="arch-title">GitHub Action · CLI Runner</div>
+    </div>
+  </div>
+</section>
+
+<!-- SCAMPER -->
+<section>
+  <h2>SCAMPER Method <span class="badge">7 lenses</span></h2>
+  <div class="lens-grid">
+
+    <div class="lens-card">
+      <div class="lens-letter s">S</div>
+      <h3>Substitute</h3>
+      <p class="from-coach">Peer-to-peer agent bidding instead of central orchestrator</p>
+      <p class="from-coach">Two-phase chain: Analyzer → Router → Sub-agents → Consolidator</p>
+      <p class="from-user">Non-single orchestrator OK, but inside IDE/Copilot ecosystem</p>
+    </div>
+
+    <div class="lens-card">
+      <div class="lens-letter c">C</div>
+      <h3>Combine</h3>
+      <p class="from-coach">Model pipeline per agent: chain of models optimized per sub-task</p>
+      <p class="from-user">Great idea!</p>
+    </div>
+
+    <div class="lens-card">
+      <div class="lens-letter a">A</div>
+      <h3>Adapt</h3>
+      <p class="from-coach">DAG scheduler for agent tasks (like Apache Spark)</p>
+      <p class="from-coach">CI/CD pipeline runner pattern (GitHub Actions for agents)</p>
+      <p class="from-user">DAG must work in CI/CD for event-triggered execution</p>
+    </div>
+
+    <div class="lens-card">
+      <div class="lens-letter m">M</div>
+      <h3>Modify</h3>
+      <p class="from-coach">Agent configs include trigger field — same .md files work in IDE and CI</p>
+      <p class="from-user">Top!</p>
+    </div>
+
+    <div class="lens-card">
+      <div class="lens-letter p">P</div>
+      <h3>Put to Other Use</h3>
+      <p class="from-coach">Code review-as-a-service, docs sync, meeting prep, onboarding, incident response</p>
+      <p class="from-user">Start with these, document expansion later</p>
+    </div>
+
+    <div class="lens-card">
+      <div class="lens-letter e">E</div>
+      <h3>Eliminate</h3>
+      <p class="from-coach">Eliminate orchestrator LLM cost — DAG purely config-driven</p>
+      <p class="from-user">Shared KB instead of redundant context passing between agents</p>
+    </div>
+
+    <div class="lens-card">
+      <div class="lens-letter r">R</div>
+      <h3>Reverse</h3>
+      <p class="from-coach">Agents pull tasks from shared queue, no central scheduler</p>
+      <p class="from-coach">CI triggers agent directly, agents sub-delegate to each other</p>
+      <p class="from-user">Great idea!</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Invented Techniques -->
+<section>
+  <h2>Invented Techniques <span class="badge">2 brand-new</span></h2>
+
+  <div class="invented-card">
+    <div class="badge">INVENTED</div>
+    <h3>Agent Mirror Protocol</h3>
+    <p>Every agent has a mirror/reflection agent that reviews its output before passing it downstream. Not a human review — an automated adversarial check. The primary agent produces output; its Mirror checks for quality, coverage, edge cases, and style violations. Only on pass does the output go to the next agent. Quality gates without human bottlenecks, and each Mirror can use a different (cheaper) model.</p>
+  </div>
+
+  <div class="invented-card">
+    <div class="badge">INVENTED</div>
+    <h3>Inversion of Control Flow</h3>
+    <p>Start from the final desired outcome (e.g. "deployed PR with passing CI") and work backwards in reverse: what agents, in what order, with what inputs, produce that outcome? Map the dependency chain from output to input. Finds gaps the forward approach misses — discovers missing dependencies, implicit ordering requirements, and agents that should be involved but weren't planned.</p>
+  </div>
+</section>
+
+<!-- Constraint Mapping -->
+<section>
+  <h2>Constraint Mapping <span class="badge">Real vs Imagined</span></h2>
+
+  <table class="constraint-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Constraint</th>
+        <th>Type</th>
+        <th>Attack</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Everything in IDE/Copilot/OpenCode — no external infra</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>Turn into asset: deep API access (FS, git, terminals, MCP)</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Must work on Copilot App (no OpenCode dependency)</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>Standalone MCP Server — any MCP host can use it</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Recursive delegation — agents call sub-agents</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>Max-depth guard, validate target agent exists</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Must work in CI/CD for autonomous event-triggered execution</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>CLI + GitHub Action, headless mode</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Must support multiple providers (OpenAI, Copilot, local, Anthropic, Groq)</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>BYOM — bring your own model per agent config</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>"The more open the better"</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>Protocol-first, not platform-first design</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Need a cheap orchestrator model</td>
+        <td><span class="tag tag-real">REAL</span></td>
+        <td>Ollama · Groq · 4o-mini — options exist</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Task decomposition requires an LLM call</td>
+        <td><span class="tag tag-imagined">IMAGINED</span></td>
+        <td>Config-driven YAML DAG — zero LLM cost</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- User Directions -->
+<section>
+  <h2>User Directions <span class="badge">What was decided</span></h2>
+  <div class="card">
+    <ul class="direction-list">
+      <li>Start with local implementation first (OpenCode agents + MCP server)</li>
+      <li>Orchestration inside IDE/Copilot ecosystem — no external infra</li>
+      <li>DAG must also work in CI/CD for event-triggered agents</li>
+      <li>Same orchestration engine for both entry points</li>
+      <li>Initial scope: SW development use cases — code review, docs sync, meeting prep, onboarding, incident response</li>
+      <li>Recursive delegation &mdash; any agent can sub-delegate</li>
+      <li>Shared filesystem knowledge base for context</li>
+      <li>Agent Mirror quality gates for automated validation</li>
+      <li>Model pipelines per agent — different models for different sub-tasks</li>
+    </ul>
+  </div>
+</section>
+
+<!-- Next Steps -->
+<section>
+  <h2>Next Steps <span class="badge">P0 first</span></h2>
+
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text">Orchestration MCP Server — standalone Node.js/TypeScript MCP server</div>
+      <span class="step-prio prio-p0">P0</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text">Agent Config schema — Zod validation for markdown agent definitions</div>
+      <span class="step-prio prio-p0">P0</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text">DAG engine — task graph, topological sort, parallel branch execution</div>
+      <span class="step-prio prio-p0">P0</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-text">Knowledge base — filesystem artifacts for inter-agent context</div>
+      <span class="step-prio prio-p0">P0</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div class="step-text">Recursive delegation — sub-DAG creation with depth guard</div>
+      <span class="step-prio prio-p0">P0</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">6</div>
+      <div class="step-text">Agent Mirror Protocol — automated quality gates per agent</div>
+      <span class="step-prio prio-p0">P0</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">7</div>
+      <div class="step-text">CI/CD entry point — event-driven CLI runner + GitHub Action</div>
+      <span class="step-prio prio-p1">P1</span>
+    </div>
+    <div class="step-item">
+      <div class="step-num">8</div>
+      <div class="step-text">Dogfood — agent configs for the system itself, integration tests</div>
+      <span class="step-prio prio-p1">P1</span>
+    </div>
+  </div>
+</section>
+
+<!-- Synthesis Quote -->
+<div class="quote">
+  "Two entry points (local MCP + CI/CD event), same orchestration engine. Start with local (OpenCode agents + MCP server for Copilot app). Agent Mirror + recursive delegation = self-healing teams."
+</div>
+
+<footer>
+  Generated from the BMad Brainstorming session · Creative Partner mode<br>
+  Memlog: <code>_bmad-output/brainstorming/brainstorm-multi-agent-model-delegation-2026-06-27/.memlog.md</code>
+</footer>
+
+</div>
+
+<script>
+// Particles background
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const particles = [];
+const colors = ['#00d4ff', '#7c3aed', '#f59e0b', '#10b981', '#ec4899'];
+
+for (let i = 0; i < 60; i++) {
+  particles.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.5,
+    r: Math.random() * 2 + 1,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    alpha: Math.random() * 0.4 + 0.1,
+  });
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const p of particles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.alpha;
+    ctx.fill();
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 0) p.x = canvas.width;
+    if (p.x > canvas.width) p.x = 0;
+    if (p.y < 0) p.y = canvas.height;
+    if (p.y > canvas.height) p.y = 0;
+  }
+  // Draw connections
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 150) {
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.strokeStyle = particles[i].color;
+        ctx.globalAlpha = (1 - dist / 150) * 0.15;
+        ctx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
