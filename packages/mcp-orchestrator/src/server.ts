@@ -29,6 +29,9 @@ import { Task } from "./schemas/task.js";
 import { Authenticator, type OAuth2Config } from "./auth/authenticator.js";
 import { createSSEAuthMiddleware, createOAuthMetadataEndpoint } from "./auth/middleware.js";
 import { LLMProvider } from "./llm/provider.js";
+import { handleAPIRequest, DashboardDeps } from "./dashboard/api.js";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ServerResponse } from "node:http";
 
 export interface OrchestratorConfig {
@@ -36,6 +39,7 @@ export interface OrchestratorConfig {
   port?: number;
   projectRoot?: string;
   auth?: OAuth2Config;
+  dashboardPort?: number;
 }
 
 interface ToolDefinition {
@@ -255,9 +259,67 @@ export class MCPOrchestratorServer {
       await this.server.connect(transport);
     }
 
+    await this.startDashboard();
+
     console.error(
-      `MCP Orchestrator started (transport: ${this.config.transport})`
+      `MCP Orchestrator started (transport: ${this.config.transport})${
+        this.config.dashboardPort && this.config.dashboardPort > 0
+          ? `, dashboard: http://localhost:${this.config.dashboardPort}/dashboard`
+          : ""
+      }`
     );
+  }
+
+  private async startDashboard(): Promise<void> {
+    const port = this.config.dashboardPort;
+    if (!port || port <= 0) return;
+
+    const http = await import("node:http");
+    const path = await import("node:path");
+
+    const deps: DashboardDeps = {
+      taskQueue: this.taskQueue,
+      kb: this.kb,
+      agentLoader: this.agentLoader,
+    };
+
+    let html: string | null = null;
+
+    const app = http.createServer(async (req, res) => {
+      const url = req.url || "/";
+
+      if (url === "/dashboard" || url === "/") {
+        if (!html) {
+          const htmlPath = resolve(
+            new URL(import.meta.url).pathname,
+            "../../src/dashboard/index.html"
+          );
+          if (existsSync(htmlPath)) {
+            html = readFileSync(htmlPath, "utf-8");
+          } else {
+            html = "<h1>Dashboard not found</h1><p>Build required: run <code>npm run build</code></p>";
+          }
+        }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+        return;
+      }
+
+      if (url.startsWith("/api/")) {
+        const handled = await handleAPIRequest(req, res, deps);
+        if (handled) return;
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: "Not found" }));
+        return;
+      }
+
+      res.writeHead(302, { Location: "/dashboard" });
+      res.end();
+    });
+
+    app.listen(port, () => {
+      console.error(`Dashboard available at http://localhost:${port}/dashboard`);
+    });
   }
 
   private async startSSE(): Promise<void> {

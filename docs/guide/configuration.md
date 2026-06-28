@@ -53,6 +53,23 @@ The orchestrator agent is guided by a system prompt at `.opencode/prompts/orches
 3. **Execute** — Call the appropriate `agent/run` with the right agent name and input
 4. **Consolidate** — Read outputs from `_kb/outbox/` and present results to the user
 
+## Dashboard
+
+The server starts a dashboard on port 3101 by default:
+
+```
+http://localhost:3101/dashboard
+```
+
+It auto-refreshes and shows:
+- **Dashboard** — stats cards (queued / running / completed / failed), recent activity feed
+- **Tasks** — sortable table with status, progress, model, mirror audit results
+- **KB** — file tree of `_kb/`, click to preview outbox reports
+- **Agents** — card view of all 7 agents with model, temperature, mirror config
+- **DAGs** — list of completed DAG runs
+
+Disable the dashboard by setting `--dashboard-port 0`.
+
 ## MCP Server Configuration
 
 The `mcp` section defines how OpenCode launches the orchestrator server:

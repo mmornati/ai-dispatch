@@ -45,7 +45,17 @@ opencode
 
 The orchestrator agent loads by default and connects to the MCP server automatically. You're ready to go.
 
-### 5. Verify the Connection
+### 5. Open the Dashboard
+
+The MCP server automatically starts a dashboard on port 3101:
+
+```bash
+open http://localhost:3101/dashboard
+```
+
+The dashboard shows real-time task status, allows browsing `_kb/` outputs, and lists all agents. Tasks appear here as they're processed by the MCP server — no polling required.
+
+### 6. Verify the Connection
 
 Check that the tools are accessible by calling `task/list`:
 

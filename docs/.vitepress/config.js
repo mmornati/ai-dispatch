@@ -43,6 +43,7 @@ export default defineConfig({
           items: [
             { text: "MCP Tools", link: "/guide/tools" },
             { text: "Knowledge Base", link: "/guide/knowledge-base" },
+            { text: "Dashboard", link: "/guide/dashboard" },
             { text: "Configuration", link: "/guide/configuration" },
             { text: "CI/CD Integration", link: "/guide/cicd" },
           ],

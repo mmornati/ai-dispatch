@@ -56,10 +56,13 @@ function findProjectRoot(startPath: string): string {
 const projectRoot = findProjectRoot(process.cwd());
 loadEnvFile(resolve(projectRoot, ".env"));
 
+const dashboardPort = parseInt(getArg("--dashboard-port") ?? "3101", 10);
+
 const config: OrchestratorConfig = {
   transport,
   port,
   projectRoot,
+  dashboardPort,
 };
 
 const authEnabled = hasFlag("--auth-enabled") || getArg("--auth") === "enabled";
